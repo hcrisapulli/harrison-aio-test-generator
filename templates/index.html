@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIO Test Case Generator</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <div class="header-badge">BGL Corp &mdash; AIO Tests</div>
+      <h1>Test Case Generator</h1>
+      <p class="subtitle">Build AIO-compatible test suites and download a CSV ready to import into JIRA.</p>
+    </header>
+
+    <!-- Best Practices Panel -->
+    <details class="tips-panel">
+      <summary>Best Practices <span class="tips-toggle-hint">(click to expand)</span></summary>
+      <ul>
+        <li><strong>Keys</strong> are auto-generated from your prefix — no need to fill them manually.</li>
+        <li><strong>Description</strong> is optional — leave blank if the title is self-explanatory.</li>
+        <li><strong>Pre-condition</strong> should only capture test-specific setup (e.g. "Entity connected to Xero"). Do <em>not</em> write "User is logged in" — that is implied.</li>
+        <li><strong>Tags</strong> should be relevant to the test. Only add <em>Regression</em> if explicitly required.</li>
+        <li><strong>Steps &amp; Expected Results</strong> are paired line-by-line. Each line becomes a separate row in the CSV.</li>
+        <li><strong>Status</strong> is always set to <em>Draft</em> automatically.</li>
+        <li>Keep test suites focused — test the main feature, not every edge case.</li>
+      </ul>
+    </details>
+
+    <!-- STEP 1: Suite Setup -->
+    <section class="step">
+      <div class="step-label">
+        <span class="step-number">1</span>
+        <h2>Suite Setup</h2>
+      </div>
+      <div class="field-row two-col">
+        <label>Suite Name <span class="required">*</span>
+          <input type="text" id="suiteName" placeholder="e.g. Xero Export Tests" maxlength="100" />
+        </label>
+        <label>Module / Feature
+          <input type="text" id="moduleField" placeholder="e.g. Export, AP Workflow, Entities" maxlength="60" />
+        </label>
+      </div>
+      <div class="field-row two-col">
+        <label>Key Prefix <span class="required">*</span>
+          <input type="text" id="keyPrefix" placeholder="e.g. SD360-TC" maxlength="50" />
+          <span class="field-hint">Keys will be generated as SD360-TC-001, SD360-TC-002&hellip;</span>
+        </label>
+        <label>Task ID / Requirements
+          <input type="text" id="taskId" placeholder="e.g. SD360-1122 (optional)" maxlength="50" />
+          <span class="field-hint">If provided, a Requirements column is added to the CSV.</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- STEP 2: Test Cases -->
+    <section class="step">
+      <div class="step-label">
+        <span class="step-number">2</span>
+        <h2>Test Cases</h2>
+      </div>
+
+      <div id="testCaseList">
+        <!-- Cards injected here by JS -->
+      </div>
+
+      <button type="button" id="addBtn" class="add-btn">
+        <span class="add-btn-icon">+</span> Add Test Case
+      </button>
+    </section>
+
+    <!-- STEP 3: Generate -->
+    <section class="step action-section">
+      <div id="errorBanner" class="error-banner" style="display:none"></div>
+      <button type="button" id="generateBtn" class="btn btn-primary">
+        <span id="btnText">Generate &amp; Download CSV</span>
+        <span id="btnSpinner" class="spinner" style="display:none"></span>
+      </button>
+      <p class="action-hint">CSV is formatted for direct import into AIO Tests (JIRA plugin)</p>
+    </section>
+
+  </div>
+
+  <!-- Test case card template (hidden) -->
+  <template id="tcTemplate">
+    <div class="tc-card" data-index="">
+      <div class="tc-card-header">
+        <span class="tc-card-num">Test Case <span class="tc-num">1</span></span>
+        <span class="tc-card-title-preview"></span>
+        <button type="button" class="tc-remove-btn" title="Remove">&times;</button>
+      </div>
+      <div class="tc-card-body">
+        <div class="field-row">
+          <label>Title <span class="required">*</span>
+            <input type="text" class="tc-title" placeholder='e.g. "Export_Verify Xero link displays for CSV format"' maxlength="120" />
+            <span class="char-counter"><span class="char-count">0</span>/120</span>
+          </label>
+        </div>
+        <div class="field-row two-col">
+          <label>Description
+            <input type="text" class="tc-desc" placeholder="leave blank if title is self-explanatory" maxlength="200" />
+          </label>
+          <label>Pre-condition
+            <input type="text" class="tc-prec" placeholder="only if test-specific setup needed" maxlength="200" />
+          </label>
+        </div>
+        <div class="field-row two-col">
+          <label>Priority
+            <select class="tc-priority">
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </label>
+          <label>Tags
+            <input type="text" class="tc-tags" placeholder="e.g. Export,Xero,Smoke" maxlength="200" />
+          </label>
+        </div>
+        <div class="field-row two-col">
+          <label>Steps <span class="required">*</span>
+            <textarea class="tc-steps" rows="5" placeholder="One step per line:&#10;Navigate to Documents&#10;Select Export&#10;Change format to CSV"></textarea>
+          </label>
+          <label>Expected Results
+            <textarea class="tc-results" rows="5" placeholder="One result per line (paired to steps):&#10;Documents page loads&#10;Export dialog opens&#10;CSV format is selected"></textarea>
+          </label>
+        </div>
+        <div class="tc-tag-shortcuts">
+          <span class="tag-shortcut-label">Quick tags:</span>
+          <button type="button" class="tag-chip" data-tag="Regression">Regression</button>
+          <button type="button" class="tag-chip" data-tag="Smoke">Smoke</button>
+          <button type="button" class="tag-chip" data-tag="Export">Export</button>
+          <button type="button" class="tag-chip" data-tag="AP">AP</button>
+          <button type="button" class="tag-chip" data-tag="Entities">Entities</button>
+          <button type="button" class="tag-chip" data-tag="Documents">Documents</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
