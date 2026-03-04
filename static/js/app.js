@@ -4,20 +4,141 @@
 (function () {
   "use strict";
 
-  const testCaseList  = document.getElementById("testCaseList");
-  const addBtn        = document.getElementById("addBtn");
-  const generateBtn   = document.getElementById("generateBtn");
-  const btnText       = document.getElementById("btnText");
-  const btnSpinner    = document.getElementById("btnSpinner");
-  const errorBanner   = document.getElementById("errorBanner");
-  const template      = document.getElementById("tcTemplate");
+  // ── Element refs ──────────────────────────────────────────────────────────
+
+  const testCaseList   = document.getElementById("testCaseList");
+  const addBtn         = document.getElementById("addBtn");
+  const generateBtn    = document.getElementById("generateBtn");
+  const btnText        = document.getElementById("btnText");
+  const btnSpinner     = document.getElementById("btnSpinner");
+  const errorBanner    = document.getElementById("errorBanner");
+  const template       = document.getElementById("tcTemplate");
+
+  const featureDesc    = document.getElementById("featureDesc");
+  const checklistGrid  = document.getElementById("checklistGrid");
+  const suggestBtn     = document.getElementById("suggestBtn");
+  const suggestText    = document.getElementById("suggestText");
+  const suggestSpinner = document.getElementById("suggestSpinner");
+  const tcCountBadge   = document.getElementById("tcCountBadge");
+  const reviewSection  = document.getElementById("reviewSection");
+  const downloadSection= document.getElementById("downloadSection");
 
   const MAX_TC = 20;
   let cardCount = 0;
 
+  // ── Checklist loader ───────────────────────────────────────────────────────
+
+  async function loadChecklist() {
+    try {
+      const res = await fetch("/checklist");
+      if (!res.ok) return;
+      const questions = await res.json();
+      checklistGrid.innerHTML = "";
+      questions.forEach((q) => {
+        const item = document.createElement("label");
+        item.className = "checklist-item";
+        item.innerHTML = `
+          <input type="checkbox" class="checklist-cb" data-key="${q.key}" />
+          <span class="checklist-short">${q.short}</span>
+          <span class="checklist-label">${q.label}</span>
+        `;
+        checklistGrid.appendChild(item);
+      });
+    } catch (_) {
+      // Non-fatal — checklist is optional enhancement
+    }
+  }
+
+  loadChecklist();
+
+  // ── Suggest handler ────────────────────────────────────────────────────────
+
+  suggestBtn.addEventListener("click", async () => {
+    hideError();
+
+    const desc = featureDesc.value.trim();
+    if (!desc) {
+      showError("Please enter a feature description before generating suggestions.");
+      return;
+    }
+
+    // Collect checklist
+    const checklist = {};
+    checklistGrid.querySelectorAll(".checklist-cb").forEach((cb) => {
+      checklist[cb.dataset.key] = cb.checked;
+    });
+
+    // Collect extra context
+    const extra_context = {};
+    const ctxModule = (document.getElementById("ctxModule").value || "").trim();
+    const ctxItem   = (document.getElementById("ctxItem").value   || "").trim();
+    const ctxDoc    = (document.getElementById("ctxDocType").value|| "").trim();
+    const ctxInt    = (document.getElementById("ctxIntegration").value || "").trim();
+    if (ctxModule) extra_context.module = ctxModule;
+    if (ctxItem)   { extra_context.item = ctxItem; extra_context.items = ctxItem + "s"; }
+    if (ctxDoc)    extra_context.document_type = ctxDoc;
+    if (ctxInt)    extra_context.integration = ctxInt;
+
+    setSuggestLoading(true);
+    try {
+      const res = await fetch("/suggest", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ description: desc, checklist, extra_context }),
+      });
+
+      if (!res.ok) {
+        let msg = `Server error (${res.status})`;
+        try { const j = await res.json(); if (j.error) msg = j.error; } catch (_) {}
+        showError(msg);
+        return;
+      }
+
+      const data = await res.json();
+      populateCards(data.test_cases || []);
+
+    } catch (err) {
+      showError("Network error: " + err.message);
+    } finally {
+      setSuggestLoading(false);
+    }
+  });
+
+  function setSuggestLoading(on) {
+    suggestBtn.disabled      = on;
+    suggestText.textContent  = on ? "Generating…" : "⚡ Suggest Test Cases";
+    suggestSpinner.style.display = on ? "inline-block" : "none";
+  }
+
+  // ── Populate cards from /suggest response ──────────────────────────────────
+
+  function populateCards(testCases) {
+    // Clear existing cards
+    testCaseList.innerHTML = "";
+    cardCount = 0;
+
+    if (!testCases.length) {
+      showError("No test cases could be generated for that description. Try adding more detail or ticking checklist items.");
+      return;
+    }
+
+    testCases.forEach((tc) => addCard(tc));
+
+    // Show review + download sections
+    reviewSection.style.display   = "";
+    downloadSection.style.display = "";
+
+    // Update badge
+    tcCountBadge.textContent = `${cardCount} test case${cardCount !== 1 ? "s" : ""} generated`;
+    tcCountBadge.style.display = "inline-block";
+
+    // Scroll to review
+    reviewSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   // ── Card management ───────────────────────────────────────────────────────
 
-  function addCard() {
+  function addCard(prefill) {
     if (cardCount >= MAX_TC) {
       showError(`Maximum of ${MAX_TC} test cases allowed.`);
       return;
@@ -30,20 +151,36 @@
     card.querySelector(".tc-num").textContent = cardCount;
     card.classList.add("expanded");
 
+    // Pre-fill if data provided
+    if (prefill && typeof prefill === "object") {
+      _setVal(card, ".tc-title",    prefill.title        || "");
+      _setVal(card, ".tc-desc",     prefill.description  || "");
+      _setVal(card, ".tc-prec",     prefill.precondition || "");
+      _setVal(card, ".tc-tags",     prefill.tags         || "");
+      _setVal(card, ".tc-steps",   (prefill.steps   || []).join("\n"));
+      _setVal(card, ".tc-results", (prefill.expected_results || []).join("\n"));
+
+      const pri = prefill.priority || "Medium";
+      const sel = card.querySelector(".tc-priority");
+      Array.from(sel.options).forEach(o => { o.selected = (o.value === pri); });
+    }
+
     // Title → preview sync
     const titleInput   = card.querySelector(".tc-title");
     const titlePreview = card.querySelector(".tc-card-title-preview");
     const charCount    = card.querySelector(".char-count");
     const charCounter  = card.querySelector(".char-counter");
 
-    titleInput.addEventListener("input", () => {
+    function syncTitle() {
       const val = titleInput.value.trim();
       titlePreview.textContent = val ? `— ${val}` : "";
       const len = titleInput.value.length;
       charCount.textContent = len;
       charCounter.classList.toggle("near-limit", len >= 100 && len < 120);
       charCounter.classList.toggle("at-limit",   len >= 120);
-    });
+    }
+    titleInput.addEventListener("input", syncTitle);
+    syncTitle(); // run immediately to populate preview for pre-filled cards
 
     // Collapse / expand on header click
     const header = card.querySelector(".tc-card-header");
@@ -73,14 +210,20 @@
           tagsInput.value = current.join(",");
           chip.classList.add("active");
         }
-
-        // Sync active state
         syncTagChips(card);
       });
     });
 
+    // Sync chip state for pre-filled tags
+    syncTagChips(card);
+
     testCaseList.appendChild(frag);
     updateAddBtn();
+  }
+
+  function _setVal(card, selector, value) {
+    const el = card.querySelector(selector);
+    if (el) el.value = value;
   }
 
   function syncTagChips(card) {
@@ -99,6 +242,13 @@
       card.querySelector(".tc-num").textContent = i + 1;
     });
     updateAddBtn();
+    // Update badge count
+    if (cardCount > 0) {
+      tcCountBadge.textContent = `${cardCount} test case${cardCount !== 1 ? "s" : ""}`;
+      tcCountBadge.style.display = "inline-block";
+    } else {
+      tcCountBadge.style.display = "none";
+    }
   }
 
   function updateAddBtn() {
@@ -106,10 +256,7 @@
     addBtn.style.opacity = cardCount >= MAX_TC ? "0.4" : "1";
   }
 
-  addBtn.addEventListener("click", addCard);
-
-  // Start with one card
-  addCard();
+  addBtn.addEventListener("click", () => addCard(null));
 
   // ── Payload builder ───────────────────────────────────────────────────────
 

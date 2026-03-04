@@ -1,6 +1,7 @@
 import re
 from flask import Flask, Response, jsonify, render_template, request
 import generator
+import matcher
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024
@@ -91,6 +92,45 @@ def generate():
     return Response(csv_content, status=200, mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename=\"{fname}\"",
                  "Content-Type": "text/csv; charset=utf-8"})
+
+
+@app.get("/checklist")
+def checklist():
+    return jsonify(matcher.get_checklist_questions())
+
+
+@app.post("/suggest")
+def suggest():
+    body = request.get_json(force=False, silent=False)
+    if body is None:
+        return jsonify({"error": "Request body must be valid JSON."}), 400
+
+    description = (body.get("description") or "").strip()
+    if not description:
+        return jsonify({"error": "Description is required."}), 400
+    if len(description) > 500:
+        return jsonify({"error": "Description too long (max 500 chars)."}), 400
+
+    checklist_raw = body.get("checklist") or {}
+    if not isinstance(checklist_raw, dict):
+        return jsonify({"error": "checklist must be an object."}), 400
+    checklist_clean = {str(k): bool(v) for k, v in checklist_raw.items()}
+
+    extra_ctx = body.get("extra_context") or {}
+    if not isinstance(extra_ctx, dict):
+        extra_ctx = {}
+    # Sanitise extra_context values
+    extra_ctx = {str(k): str(v)[:100] for k, v in extra_ctx.items() if v}
+
+    try:
+        test_cases = matcher.generate_test_cases(description, checklist_clean, extra_ctx)
+    except Exception as exc:
+        return jsonify({"error": f"Suggestion failed: {exc}"}), 500
+
+    # Cap at MAX_TC
+    test_cases = test_cases[:_MAX_TC]
+
+    return jsonify({"test_cases": test_cases, "count": len(test_cases)})
 
 
 if __name__ == "__main__":

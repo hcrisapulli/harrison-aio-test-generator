@@ -12,7 +12,7 @@
     <header>
       <div class="header-badge">BGL Corp &mdash; AIO Tests</div>
       <h1>Test Case Generator</h1>
-      <p class="subtitle">Build AIO-compatible test suites and download a CSV ready to import into JIRA.</p>
+      <p class="subtitle">Describe a feature, tick what to cover, and get a ready-to-import AIO CSV in seconds.</p>
     </header>
 
     <!-- Best Practices Panel -->
@@ -29,7 +29,7 @@
       </ul>
     </details>
 
-    <!-- STEP 1: Suite Setup -->
+    <!-- ── STEP 1: Suite Setup ─────────────────────────────────── -->
     <section class="step">
       <div class="step-label">
         <span class="step-number">1</span>
@@ -55,12 +55,71 @@
       </div>
     </section>
 
-    <!-- STEP 2: Test Cases -->
+    <!-- ── STEP 2: Describe & Generate ───────────────────────────── -->
     <section class="step">
       <div class="step-label">
         <span class="step-number">2</span>
-        <h2>Test Cases</h2>
+        <h2>Describe &amp; Generate</h2>
       </div>
+
+      <!-- Description textarea -->
+      <div class="field-row">
+        <label>Feature Description <span class="required">*</span>
+          <textarea id="featureDesc" class="desc-textarea" rows="3"
+            placeholder="e.g. Export documents to Xero from the AP Workflow — include CSV, PDF and direct Xero push formats"></textarea>
+          <span class="field-hint">Describe what the feature does. The more specific, the better the suggestions.</span>
+        </label>
+      </div>
+
+      <!-- Coverage checklist -->
+      <div class="checklist-section">
+        <p class="checklist-heading">Coverage checklist <span class="checklist-hint">— tick everything that applies</span></p>
+        <div id="checklistGrid" class="checklist-grid">
+          <!-- Injected by JS via /checklist -->
+        </div>
+      </div>
+
+      <!-- Extra context (collapsible) -->
+      <details class="extra-context-panel">
+        <summary>Extra context <span class="tips-toggle-hint">(optional — helps refine generated titles &amp; steps)</span></summary>
+        <div class="extra-context-body">
+          <div class="field-row two-col">
+            <label>Module / area name
+              <input type="text" id="ctxModule" placeholder="e.g. AP Workflow" maxlength="60" />
+            </label>
+            <label>Item label (singular)
+              <input type="text" id="ctxItem" placeholder="e.g. invoice" maxlength="60" />
+            </label>
+          </div>
+          <div class="field-row two-col">
+            <label>Document type
+              <input type="text" id="ctxDocType" placeholder="e.g. Invoice, Trial Balance" maxlength="60" />
+            </label>
+            <label>Integration name
+              <input type="text" id="ctxIntegration" placeholder="e.g. Xero, QuickBooks" maxlength="60" />
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <!-- Suggest button -->
+      <div class="suggest-row">
+        <button type="button" id="suggestBtn" class="btn btn-secondary">
+          <span id="suggestText">&#9889; Suggest Test Cases</span>
+          <span id="suggestSpinner" class="spinner" style="display:none"></span>
+        </button>
+        <span id="tcCountBadge" class="tc-count-badge" style="display:none"></span>
+      </div>
+    </section>
+
+    <!-- ── STEP 3: Review & Edit ───────────────────────────────── -->
+    <section class="step" id="reviewSection" style="display:none">
+      <div class="step-label">
+        <span class="step-number">3</span>
+        <h2>Review &amp; Edit</h2>
+      </div>
+
+      <p class="review-hint">Review the generated test cases below. Edit any field before downloading.</p>
 
       <div id="testCaseList">
         <!-- Cards injected here by JS -->
@@ -71,8 +130,8 @@
       </button>
     </section>
 
-    <!-- STEP 3: Generate -->
-    <section class="step action-section">
+    <!-- ── STEP 4: Download ───────────────────────────────────── -->
+    <section class="step action-section" id="downloadSection" style="display:none">
       <div id="errorBanner" class="error-banner" style="display:none"></div>
       <button type="button" id="generateBtn" class="btn btn-primary">
         <span id="btnText">Generate &amp; Download CSV</span>
@@ -81,7 +140,7 @@
       <p class="action-hint">CSV is formatted for direct import into AIO Tests (JIRA plugin)</p>
     </section>
 
-  </div>
+  </div><!-- /.container -->
 
   <!-- Test case card template (hidden) -->
   <template id="tcTemplate">
